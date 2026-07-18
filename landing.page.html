@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Postman Collection AI Agent — Stop Writing Collections Manually</title>
+  <meta name="description" content="AI-powered tool that detects routes, groups them into folders, and imports to Postman in seconds." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: '#0a0a0a',
+            surface: '#111111',
+            border: '#1e1e1e',
+            orange: '#f97316',
+            purple: '#8b5cf6',
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+        }
+      }
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { background: #0a0a0a; color: #e5e5e5; font-family: 'Inter', sans-serif; }
+
+    ::selection { background: #f97316; color: #000; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0a0a0a; }
+    ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+
+    /* Gradient text */
+    .grad-text {
+      background: linear-gradient(135deg, #f97316 0%, #8b5cf6 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .grad-border {
+      border: 1px solid transparent;
+      background: linear-gradient(#111111, #111111) padding-box,
+                  linear-gradient(135deg, #f97316, #8b5cf6) border-box;
+    }
+
+    /* Glow effects */
+    .glow-orange { box-shadow: 0 0 30px rgba(249,115,22,0.15); }
+    .glow-purple { box-shadow: 0 0 30px rgba(139,92,246,0.15); }
+
+    /* Navbar */
+    #navbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: rgba(10,10,10,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid #1a1a1a;
+      transition: all 0.3s ease;
+    }
+
+    /* Hero gradient bg */
+    .hero-bg {
+      background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(249,115,22,0.08) 0%, transparent 60%),
+                  radial-gradient(ellipse 60% 50% at 80% 50%, rgba(139,92,246,0.06) 0%, transparent 50%),
+                  #0a0a0a;
+    }
+
+    /* Terminal */
+    .terminal {
+      background: #0d0d0d;
+      border: 1px solid #222;
+      border-radius: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      overflow: hidden;
+    }
+
+    .terminal-bar {
+      background: #1a1a1a;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid #222;
+    }
+
+    .dot { width: 12px; height: 12px; border-radius: 50%; }
+    .dot-red { background: #ff5f57; }
+    .dot-yellow { background: #febc2e; }
+    .dot-green { background: #28c840; }
+
+    /* Typewriter */
+    .typewriter-cursor::after {
+      content: '|';
+      animation: blink 1s infinite;
+      color: #f97316;
+    }
+    @keyframes blink { 0%,50% { opacity: 1; } 51%,100% { opacity: 0; } }
+
+    /* Intersection Observer animations */
+    .reveal {
+      opacity: 0;
+      transform: translateY(28px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .reveal-left {
+      opacity: 0;
+      transform: translateX(-28px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .reveal-left.visible { opacity: 1; transform: translateX(0); }
+    .reveal-right {
+      opacity: 0;
+      transform: translateX(28px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .reveal-right.visible { opacity: 1; transform: translateX(0); }
+
+    /* Delay utilities */
+    .delay-100 { transition-delay: 0.1s; }
+    .delay-200 { transition-delay: 0.2s; }
+    .delay-300 { transition-delay: 0.3s; }
+    .delay-400 { transition-delay: 0.4s; }
+    .delay-500 { transition-delay: 0.5s; }
+
+    /* Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      font-family: 'JetBrains Mono', monospace;
+      border: 1px solid #2a2a2a;
+      background: #141414;
+      color: #aaa;
+    }
+    .badge-orange { border-color: rgba(249,115,22,0.4); color: #f97316; background: rgba(249,115,22,0.05); }
+    .badge-purple { border-color: rgba(139,92,246,0.4); color: #a78bfa; background: rgba(139,92,246,0.05); }
+    .badge-green { border-color: rgba(34,197,94,0.4); color: #4ade80; background: rgba(34,197,94,0.05); }
+
+    /* CTA button */
+    .btn-primary {
+      background: linear-gradient(135deg, #f97316, #ea580c);
+      color: #fff;
+      font-weight: 600;
+      padding: 12px 24px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+      letter-spacing: 0.01em;
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 25px rgba(249,115,22,0.3); }
+
+    .btn-secondary {
+      background: transparent;
+      color: #e5e5e5;
+      font-weight: 600;
+      padding: 11px 24px;
+      border-radius: 8px;
+      border: 1px solid #2a2a2a;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-secondary:hover { border-color: #444; background: #161616; }
+
+    /* Copy button */
+    .copy-box {
+      background: #0d0d0d;
+      border: 1px solid #222;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .copy-box:hover { border-color: #f97316; }
+
+    /* Feature cards */
+    .feat-card {
+      background: #111;
+      border: 1px solid #1e1e1e;
+      border-radius: 10px;
+      padding: 20px;
+      transition: all 0.3s;
+    }
+    .feat-card:hover {
+      border-color: rgba(249,115,22,0.3);
+      background: #131313;
+      transform: translateY(-2px);
+    }
+
+    /* Framework card */
+    .fw-card {
+      background: #111;
+      border: 1px solid #1e1e1e;
+      border-radius: 10px;
+      padding: 18px 22px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: all 0.25s;
+    }
+    .fw-card:hover {
+      border-color: rgba(139,92,246,0.35);
+      background: #131318;
+    }
+
+    /* LLM badge */
+    .llm-chip {
+      background: #111;
+      border: 1px solid #1e1e1e;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+    .llm-chip:hover { border-color: #333; background: #141414; }
+
+    /* Stats bar */
+    .stats-bar {
+      background: linear-gradient(90deg, rgba(249,115,22,0.06) 0%, rgba(139,92,246,0.06) 100%);
+      border-top: 1px solid #1e1e1e;
+      border-bottom: 1px solid #1e1e1e;
+    }
+
+    /* Step connector */
+    .step-connector {
+      height: 2px;
+      background: linear-gradient(90deg, #f97316, #8b5cf6);
+      flex: 1;
+    }
+
+    /* Use case tabs */
+    .tab-btn { transition: all 0.2s; }
+    .tab-btn.active {
+      background: linear-gradient(135deg, rgba(249,115,22,0.15), rgba(139,92,246,0.15));
+      border-color: rgba(249,115,22,0.4);
+      color: #f97316;
+    }
+
+    /* Hamburger */
+    #menu-toggle span {
+      display: block; width: 22px; height: 2px;
+      background: #e5e5e5; border-radius: 2px;
+      transition: all 0.3s;
+    }
+    #mobile-menu { display: none; }
+    #mobile-menu.open { display: flex; }
+
+    /* hljs override */
+    .hljs { background: transparent !important; padding: 0 !important; }
+
+    /* Grid animation for bg */
+    .grid-bg {
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+    }
+
+    /* Animated terminal lines */
+    .term-line { opacity: 0; transform: translateX(-8px); }
+    .term-line.show {
+      animation: termIn 0.3s ease forwards;
+    }
+    @keyframes termIn {
+      to { opacity: 1; transform: translateX(0); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ======================== NAVBAR ======================== -->
+<nav id="navbar">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex items-center justify-between h-16">
+      <!-- Logo -->
+      <a href="#" class="flex items-center gap-3">
+        <div style="background:linear-gradient(135deg,#f97316,#8b5cf6);width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+        </div>
+        <span style="font-weight:700;font-size:15px;letter-spacing:-0.02em;">postman-agent</span>
+      </a>
+
+      <!-- Desktop nav -->
+      <div class="hidden md:flex items-center gap-8">
+        <a href="#how-it-works" class="text-sm text-gray-400 hover:text-white transition-colors">How it works</a>
+        <a href="#features" class="text-sm text-gray-400 hover:text-white transition-colors">Features</a>
+        <a href="#llm-providers" class="text-sm text-gray-400 hover:text-white transition-colors">LLM Providers</a>
+        <a href="#usage" class="text-sm text-gray-400 hover:text-white transition-colors">Usage</a>
+        <a href="#demo" class="text-sm text-gray-400 hover:text-white transition-colors">Demo</a>
+      </div>
+
+      <!-- CTA + GitHub -->
+      <div class="hidden md:flex items-center gap-3">
+        <a href="https://github.com/Abubakar-webmaker/postman-ai-agent" target="_blank" rel="noopener noreferrer"
+           style="display:inline-flex;align-items:center;gap:7px;padding:7px 14px;border:1px solid #2a2a2a;border-radius:7px;font-size:13px;font-weight:600;color:#e5e5e5;text-decoration:none;transition:all 0.2s;"
+           onmouseover="this.style.borderColor='#f97316';this.style.color='#f97316'"
+           onmouseout="this.style.borderColor='#2a2a2a';this.style.color='#e5e5e5'">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+          Star on GitHub
+        </a>
+        <a href="https://pypi.org/project/postman-agent/" target="_blank" rel="noopener noreferrer" class="btn-primary" style="padding:7px 16px;font-size:13px;text-decoration:none;display:inline-flex;align-items:center;">
+          pip install
+        </a>
+      </div>
+
+      <!-- Hamburger -->
+      <button id="menu-toggle" class="md:hidden flex flex-col gap-1.5 p-2" onclick="toggleMenu()">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Mobile menu -->
+  <div id="mobile-menu" class="md:hidden flex-col px-4 pb-4 gap-1 border-t border-gray-900">
+    <a href="#how-it-works" onclick="toggleMenu()" class="block py-3 text-sm text-gray-400 hover:text-white border-b border-gray-900">How it works</a>
+    <a href="#features" onclick="toggleMenu()" class="block py-3 text-sm text-gray-400 hover:text-white border-b border-gray-900">Features</a>
+    <a href="#llm-providers" onclick="toggleMenu()" class="block py-3 text-sm text-gray-400 hover:text-white border-b border-gray-900">LLM Providers</a>
+    <a href="#usage" onclick="toggleMenu()" class="block py-3 text-sm text-gray-400 hover:text-white border-b border-gray-900">Usage</a>
+    <a href="#demo" onclick="toggleMenu()" class="block py-3 text-sm text-gray-400 hover:text-white">Demo</a>
+    <div class="flex gap-3 pt-3">
+      <a href="https://github.com/Abubakar-webmaker/postman-ai-agent" target="_blank" rel="noopener noreferrer" class="btn-secondary flex-1 justify-center" style="font-size:13px;">GitHub</a>
+      <a href="https://pypi.org/project/postman-agent/" target="_blank" rel="noopener noreferrer" class="btn-primary flex-1 text-center" style="font-size:13px;text-decoration:none;">PyPI</a>
+    </div>
+  </div>
+</nav>
+
+
+<!-- ======================== HERO ======================== -->
+<section class="hero-bg relative pt-32 pb-24 px-4 overflow-hidden">
+  <div class="grid-bg"></div>
+
+  <div class="max-w-5xl mx-auto relative z-10 text-center">
+
+    <!-- Top badge -->
+    <div class="reveal inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-orange-500/20 bg-orange-500/5 text-orange-400 text-xs font-mono mb-8">
+      <span style="width:6px;height:6px;border-radius:50%;background:#f97316;display:inline-block;animation:pulse 2s infinite;"></span>
+      AI-Powered Developer Tool — Now on PyPI
+    </div>
+
+    <!-- Headline -->
+    <h1 class="reveal delay-100 text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-tight mb-6">
+      Stop Writing<br />
+      <span class="grad-text">Postman Collections</span><br />
+      Manually
+    </h1>
+
+    <p class="reveal delay-200 text-base sm:text-lg text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+      Point it at any backend project. AI detects routes, groups them into folders,
+      and imports to Postman — in seconds. Zero config. Any framework.
+    </p>
+
+    <!-- Badges -->
+    <div class="reveal delay-300 flex flex-wrap justify-center gap-2 mb-10">
+      <a href="https://pypi.org/project/postman-agent/" target="_blank" rel="noopener noreferrer">
+        <img src="https://img.shields.io/pypi/v/postman-agent?style=flat&label=PyPI&color=f97316&labelColor=1a1a1a" alt="PyPI" style="height:24px;border-radius:5px;" />
+      </a>
+      <a href="https://pypi.org/project/postman-agent/" target="_blank" rel="noopener noreferrer">
+        <img src="https://img.shields.io/pypi/dm/postman-agent?style=flat&label=Downloads&color=8b5cf6&labelColor=1a1a1a" alt="Downloads" style="height:24px;border-radius:5px;" />
+      </a>
+      <span class="badge badge-green">Python 3.10+</span>
+      <span class="badge badge-purple">15+ LLM Providers</span>
+    </div>
+
+    <!-- CTA buttons -->
+    <div class="reveal delay-400 flex flex-col sm:flex-row items-center justify-center gap-3 mb-14">
+      <div class="copy-box w-full sm:w-auto sm:min-w-72" onclick="copyInstall(this)" title="Click to copy">
+        <div class="flex items-center gap-3">
+          <span style="color:#f97316;font-size:12px;">$</span>
+          <span style="color:#e5e5e5;" id="install-cmd">pip install postman-agent</span>
+        </div>
+        <div id="copy-icon" style="color:#666;transition:color 0.2s;flex-shrink:0;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        </div>
+      </div>
+      <a href="https://github.com/Abubakar-webmaker/postman-ai-agent" target="_blank" rel="noopener noreferrer" class="btn-secondary w-full sm:w-auto justify-center">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        View on GitHub
+      </a>
+    </div>
+
+    <!-- Animated terminal -->
+    <div class="reveal delay-500 terminal max-w-2xl mx-auto text-left glow-orange" id="hero-terminal">
+      <div class="terminal-bar">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+        <span style="margin-left:8px;font-size:11px;color:#555;font-family:'JetBrains Mono',monospace;">postman-agent — CLI</span>
+      </div>
+      <div class="p-5 space-y-1 text-sm font-mono" id="hero-term-content">
+        <!-- filled by JS -->
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ======================== STATS BAR ======================== -->
+<div class="stats-bar py-6">
+  <div class="max-w-5xl mx-auto px-4">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+      <div class="reveal">
+        <div class="text-2xl font-black grad-text">15+</div>
+        <div class="text-xs text-gray-500 mt-1 uppercase tracking-wider">LLM Providers</div>
+      </div>
+      <div class="reveal delay-100">
+        <div class="text-2xl font-black grad-text">5</div>
+        <div class="text-xs text-gray-500 mt-1 uppercase tracking-wider">Frameworks</div>
+      </div>
+      <div class="reveal delay-200">
+        <div class="text-2xl font-black grad-text">1</div>
+        <div class="text-xs text-gray-500 mt-1 uppercase tracking-wider">Command Setup</div>
+      </div>
+      <div class="reveal delay-300">
+        <div class="text-2xl font-black grad-text">∞</div>
+        <div class="text-xs text-gray-500 mt-1 uppercase tracking-wider">Routes Detected</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ======================== HOW IT WORKS ======================== -->
+<section id="how-it-works" class="py-24 px-4">
+  <div class="max-w-5xl mx-auto">
+    <div class="text-center mb-16 reveal">
+      <div class="badge badge-orange mb-4">How it works</div>
+      <h2 class="text-3xl sm:text-4xl font-black tracking-tight mb-4">Three commands.<br /><span class="grad-text">Infinite routes.</span></h2>
+      <p class="text-gray-400 text-base max-w-xl mx-auto">From install to a fully imported Postman collection in under a minute.</p>
+    </div>
+
+    <!-- Steps -->
+    <div class="flex flex-col md:flex-row items-start gap-6">
+
+      <!-- Step 1 -->
+      <div class="feat-card flex-1 reveal reveal-left">
+        <div style="width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,#f97316,#ea580c);display:flex;align-items:center;justify-content:center;margin-bottom:16px;">
+          <span style="font-weight:800;font-size:15px;color:#fff;">1</span>
+        </div>
+        <div class="badge badge-orange mb-3">Install</div>
+        <h3 class="font-bold text-white text-base mb-3">Get the tool</h3>
+        <div style="background:#0d0d0d;border:1px solid #1e1e1e;border-radius:6px;padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:12px;">
+          <span style="color:#666;">$</span> <span style="color:#f97316;">pip</span> <span style="color:#e5e5e5;">install postman-agent</span>
+        </div>
+        <p class="text-gray-500 text-sm mt-3">Single pip install. No Docker, no config files, no dependencies to manage.</p>
+      </div>
+
+      <!-- Arrow -->
+      <div class="hidden md:flex items-center pt-14">
+        <svg width="32" height="16" viewBox="0 0 32 16" fill="none">
+          <path d="M0 8h28M22 2l8 6-8 6" stroke="url(#ag)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <defs><linearGradient id="ag" x1="0" y1="0" x2="32" y2="0"><stop offset="0%" stop-color="#f97316"/><stop offset="100%" stop-color="#8b5cf6"/></linearGradient></defs>
+        </svg>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="feat-card flex-1 reveal delay-200">
+        <div style="width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);display:flex;align-items:center;justify-content:center;margin-bottom:16px;">
+          <span style="font-weight:800;font-size:15px;color:#fff;">2</span>
+        </div>
+        <div class="badge badge-purple mb-3">Setup</div>
+        <h3 class="font-bold text-white text-base mb-3">Pick your LLM</h3>
+        <div style="background:#0d0d0d;border:1px solid #1e1e1e;border-radius:6px;padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:12px;">
+          <span style="color:#666;">$</span> <span style="color:#a78bfa;">postman-agent</span> <span style="color:#e5e5e5;">setup</span>
+        </div>
+        <p class="text-gray-500 text-sm mt-3">Choose from 15+ LLM providers. Add your API key. Done in 30 seconds.</p>
+      </div>
+
+      <!-- Arrow -->
+      <div class="hidden md:flex items-center pt-14">
+        <svg width="32" height="16" viewBox="0 0 32 16" fill="none">
+          <path d="M0 8h28M22 2l8 6-8 6" stroke="url(#ag2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <defs><linearGradient id="ag2" x1="0" y1="0" x2="32" y2="0"><stop offset="0%" stop-color="#8b5cf6"/><stop offset="100%" stop-color="#22c55e"/></linearGradient></defs>
+        </svg>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="feat-card flex-1 reveal reveal-right delay-300">
+        <div style="width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,#22c55e,#16a34a);display:flex;align-items:center;justify-content:center;margin-bottom:16px;">
+          <span style="font-weight:800;font-size:15px;color:#fff;">3</span>
+        </div>
+        <div class="badge badge-green mb-3">Generate</div>
+        <h3 class="font-bold text-white text-base mb-3">Run and import</h3>
+        <div style="background:#0d0d0d;border:1px solid #1e1e1e;border-radius:6px;padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:12px;">
+          <span style="color:#666;">$</span> <span style="color:#4ade80;">postman-agent</span> <span style="color:#e5e5e5;">generate --scan .</span>
+        </div>
+        <p class="text-gray-500 text-sm mt-3">AI scans every file, detects routes, groups by folder, and auto-imports into Postman.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ======================== FEATURES ======================== -->
+<section id="features" class="py-24 px-4" style="background:linear-gradient(180deg,#0a0a0a 0%,#0d0d12 50%,#0a0a0a 100%);">
+  <div class="max-w-5xl mx-auto">
+    <div class="text-center mb-16 reveal">
+      <div class="badge badge-purple mb-4">Features</div>
+      <h2 class="text-3xl sm:text-4xl font-black tracking-tight mb-4">Everything you'd write<br /><span class="grad-text">AI writes for you.</span></h2>
+      <p class="text-gray-400 text-base max-w-xl mx-auto">No more manual endpoints. No more guessing body shapes. No more wrong folder names.</p>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+
+      <div class="feat-card reveal delay-100">
+        <div style="font-size:20px;margin-bottom:12px;color:#f97316;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </div>
+        <h3 class="font-bold text-white text-sm mb-1">Smart File Detection</h3>
+        <p class="text-gray-500 text-xs leading-relaxed">Crawls your entire project tree and finds every route definition file automatically.</p>
+      </div>
+
+      <div class="feat-card reveal delay-200">
+        <div style="font-size:20px;margin-bottom:12px;color:#8b5cf6;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <h3 class="font-bold text-white text-sm mb-1">Base Path Detection</h3>
+        <p class="text-gray-500 text-xs leading-relaxed">Identifies API prefixes like <span style="font-family:'JetBrains Mono',monospace;color:#a78bfa;">/api/v1</span> and applies them correctly across all requests.</p>
+      </div>
+
+      <div class="feat-card reveal delay-300">
+        <div style="font-size:20px;margin-bottom:12px;color:#22c55e;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <h3 class="font-bold text-white text-sm mb-1">Auto Folder Grouping</h3>
+        <p class="text-gray-500 text-xs leading-relaxed">Routes are organized into logical Postman folders based on resource names and patterns.</p>
+      </div>
+
+      <div class="feat-card reveal delay-100">
+        <div style="font-size:20px;margin-bottom:12px;color:#f59e0b;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <h3 class="font-bold text-white text-sm mb-1">Auth Type Detection</h3>
+        <p class="text-gray-500 text-xs leading-relaxed">Detects JWT, OAuth, API Key, and Bearer patterns. Sets Postman auth headers automatically.</p>
+      </div>
+
+      <div class="feat-card reveal delay-200">
+        <div style="font-size:20px;margin-bottom:12px;color:#06b6d4;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        </div>
+        <h3 class="font-bold text-white text-sm mb-1">Smart Route Names</h3>
+        <p class="text-gray-500 text-xs leading-relaxed">Human-readable names generated from route patterns — not raw endpoint strings.</p>
+      </div>
+
+      <div class="feat-card reveal delay-300">
+        <div style="font-size:20px;margin-bottom:12px;color:#ec4899;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        </div>
+        <h3 class="font-bold text-white text-sm mb-1">Path & Query Params</h3>
+        <p class="text-gray-500 text-xs leading-relaxed">Extracts <span style="font-family:'JetBrains Mono',monospace;color:#f472b6;">:id</span>, query strings, and optional params — adds them as Postman variables.</p>
+      </div>
+
+      <div class="feat-card reveal delay-100">
+        <div style="font-size:20px;margin-bottom:12px;color:#f97316;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        </div>
+        <h3 class="font-bold text-white text-sm mb-1">Realistic Request Bodies</h3>
+        <p class="text-gray-500 text-xs leading-relaxed">AI infers request body shapes from validation schemas, models, and function signatures.</p>
+      </div>
+
+      <div class="feat-card reveal delay-200">
+        <div style="font-size:20px;margin-bottom:12px;color:#8b5cf6;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        </div>
+        <h3 class="font-bold text-white text-sm mb-1">AI Enhancement</h3>
+        <p class="text-gray-500 text-xs leading-relaxed">Goes beyond route detection — adds descriptions, example values, and pre-request scripts.</p>
+      </div>
+
+      <div class="feat-card reveal delay-300">
+        <div style="font-size:20px;margin-bottom:12px;color:#22c55e;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+        <h3 class="font-bold text-white text-sm mb-1">Watch Mode + Dry Run</h3>
+        <p class="text-gray-500 text-xs leading-relaxed">Watch mode re-generates on file changes. Dry run previews what will be generated before import.</p>
+      </div>
+
+      <div class="feat-card reveal delay-200">
+        <div style="font-size:20px;margin-bottom:12px;color:#f97316;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        </div>
+        <h3 class="font-bold text-white text-sm mb-1">15 LLM Providers</h3>
+        <p class="text-gray-500 text-xs leading-relaxed">From free (Groq, Ollama, Gemini) to paid (OpenAI, Anthropic) — you choose what fits your workflow.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ======================== FRAMEWORKS ======================== -->
+<section id="frameworks" class="py-24 px-4">
+  <div class="max-w-5xl mx-auto">
+    <div class="text-center mb-14 reveal">
+      <div class="badge mb-4">Supported Frameworks</div>
+      <h2 class="text-3xl sm:text-4xl font-black tracking-tight mb-4">Works with the stack<br /><span class="grad-text">you already use.</span></h2>
+      <p class="text-gray-400 text-base max-w-lg mx-auto">JavaScript or Python, REST or typed routers — postman-agent reads them all.</p>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+
+      <div class="fw-card reveal delay-100">
+        <div style="width:40px;height:40px;border-radius:8px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <span style="font-size:20px;">⚡</span>
+        </div>
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <span class="font-semibold text-white text-sm">Express.js</span>
+            <span class="badge" style="font-size:10px;padding:2px 7px;color:#f7df1e;border-color:rgba(247,223,30,0.3);background:rgba(247,223,30,0.05);">JS</span>
+          </div>
+          <p class="text-gray-500 text-xs">Most popular Node.js framework. Full support for all router patterns.</p>
+        </div>
+      </div>
+
+      <div class="fw-card reveal delay-200">
+        <div style="width:40px;height:40px;border-radius:8px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <span style="font-size:20px;">🚀</span>
+        </div>
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <span class="font-semibold text-white text-sm">Fastify</span>
+            <span class="badge" style="font-size:10px;padding:2px 7px;color:#f7df1e;border-color:rgba(247,223,30,0.3);background:rgba(247,223,30,0.05);">JS</span>
+          </div>
+          <p class="text-gray-500 text-xs">High-performance Node.js. Schema-based routes detected with full type awareness.</p>
+        </div>
+      </div>
+
+      <div class="fw-card reveal delay-300">
+        <div style="width:40px;height:40px;border-radius:8px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <span style="font-size:20px;">⚡</span>
+        </div>
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <span class="font-semibold text-white text-sm">FastAPI</span>
+            <span class="badge" style="font-size:10px;padding:2px 7px;color:#3776ab;border-color:rgba(55,118,171,0.3);background:rgba(55,118,171,0.05);">Python</span>
+          </div>
+          <p class="text-gray-500 text-xs">Pydantic models, type annotations, and OpenAPI schemas all parsed correctly.</p>
+        </div>
+      </div>
+
+      <div class="fw-card reveal delay-100">
+        <div style="width:40px;height:40px;border-radius:8px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <span style="font-size:20px;">🌶</span>
+        </div>
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <span class="font-semibold text-white text-sm">Flask</span>
+            <span class="badge" style="font-size:10px;padding:2px 7px;color:#3776ab;border-color:rgba(55,118,171,0.3);background:rgba(55,118,171,0.05);">Python</span>
+          </div>
+          <p class="text-gray-500 text-xs">Decorator-based routes, Blueprints, and nested route patterns fully supported.</p>
+        </div>
+      </div>
+
+      <div class="fw-card reveal delay-200">
+        <div style="width:40px;height:40px;border-radius:8px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <span style="font-size:20px;">🎸</span>
+        </div>
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <span class="font-semibold text-white text-sm">Django</span>
+            <span class="badge" style="font-size:10px;padding:2px 7px;color:#3776ab;border-color:rgba(55,118,171,0.3);background:rgba(55,118,171,0.05);">Python</span>
+          </div>
+          <p class="text-gray-500 text-xs">urls.py patterns, DRF ViewSets, and APIView classes — all parsed accurately.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ======================== LLM PROVIDERS ======================== -->
+<section id="llm-providers" class="py-24 px-4" style="background:#0d0d0d;">
+  <div class="max-w-5xl mx-auto">
+    <div class="text-center mb-14 reveal">
+      <div class="badge badge-purple mb-4">LLM Providers</div>
+      <h2 class="text-3xl sm:text-4xl font-black tracking-tight mb-4">Your AI. <span class="grad-text">Your choice.</span></h2>
+      <p class="text-gray-400 text-base max-w-lg mx-auto">Use any LLM — from free local models to powerful cloud APIs. No vendor lock-in.</p>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div class="llm-chip reveal delay-100">
+        <div class="flex items-center gap-2"><span style="color:#f97316;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:12px;">Groq</span><span class="text-gray-600 text-xs">— LLaMA ultra-fast</span></div>
+        <span class="badge badge-green" style="font-size:10px;padding:2px 8px;">Free</span>
+      </div>
+      <div class="llm-chip reveal delay-200">
+        <div class="flex items-center gap-2"><span style="color:#4285f4;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:12px;">Gemini</span><span class="text-gray-600 text-xs">— Google AI</span></div>
+        <span class="badge badge-green" style="font-size:10px;padding:2px 8px;">Free</span>
+      </div>
+      <div class="llm-chip reveal delay-300">
+        <div class="flex items-center gap-2"><span style="color:#22c55e;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:12px;">Ollama</span><span class="text-gray-600 text-xs">— local models</span></div>
+        <span class="badge badge-green" style="font-size:10px;padding:2px 8px;">Free</span>
+      </div>
+      <div class="llm-chip reveal delay-100">
+        <div class="flex items-center gap-2"><span style="color:#74aa9c;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:12px;">OpenAI</span><span class="text-gray-600 text-xs">— GPT-4o</span></div>
+        <span class="badge" style="font-size:10px;padding:2px 8px;color:#f59e0b;border-color:rgba(245,158,11,0.3);background:rgba(245,158,11,0.05);">Paid</span>
+      </div>
+      <div class="llm-chip reveal delay-200">
+        <div class="flex items-center gap-2"><span style="color:#cc785c;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:12px;">Anthropic</span><span class="text-gray-600 text-xs">— Claude</span></div>
+        <span class="badge" style="font-size:10px;padding:2px 8px;color:#f59e0b;border-color:rgba(245,158,11,0.3);background:rgba(245,158,11,0.05);">Paid</span>
+      </div>
+      <div class="llm-chip reveal delay-300">
+        <div class="flex items-center gap-2"><span style="color:#a78bfa;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:12px;">Together AI</span><span class="text-gray-600 text-xs">— Llama-3.2-3B-Turbo</span></div>
+        <span class="badge badge-green" style="font-size:10px;padding:2px 8px;">Free</span>
+      </div>
+      <div class="llm-chip reveal delay-100">
+        <div class="flex items-center gap-2"><span style="color:#06b6d4;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:12px;">Cerebras</span><span class="text-gray-600 text-xs">— llama3.1-8b</span></div>
+        <span class="badge badge-green" style="font-size:10px;padding:2px 8px;">Free</span>
+      </div>
+      <div class="llm-chip reveal delay-200">
+        <div class="flex items-center gap-2"><span style="color:#f97316;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:12px;">Fireworks AI</span><span class="text-gray-600 text-xs">— llama-v3p1-8b</span></div>
+        <span class="badge badge-green" style="font-size:10px;padding:2px 8px;">Free</span>
+      </div>
+      <div class="llm-chip reveal delay-300">
+        <div class="flex items-center gap-2"><span style="color:#8b5cf6;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:12px;">SambaNova</span><span class="text-gray-600 text-xs">— Llama-3.1-8B</span></div>
+        <span class="badge badge-green" style="font-size:10px;padding:2px 8px;">Free</span>
+      </div>
+      <div class="llm-chip reveal delay-100">
+        <div class="flex items-center gap-2"><span style="color:#22c55e;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:12px;">HuggingFace</span><span class="text-gray-600 text-xs">— Llama-3.2-3B</span></div>
+        <span class="badge badge-green" style="font-size:10px;padding:2px 8px;">Free</span>
+      </div>
+      <div class="llm-chip reveal delay-200">
+        <div class="flex items-center gap-2"><span style="color:#e5e5e5;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:12px;">Mistral</span><span class="text-gray-600 text-xs">— mistral-small</span></div>
+        <span class="badge" style="font-size:10px;padding:2px 8px;color:#f59e0b;border-color:rgba(245,158,11,0.3);background:rgba(245,158,11,0.05);">Paid</span>
+      </div>
+      <div class="llm-chip reveal delay-300">
+        <div class="flex items-center gap-2"><span style="color:#f97316;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:12px;">OpenRouter</span><span class="text-gray-600 text-xs">— gemma-2-9b:free</span></div>
+        <span class="badge badge-green" style="font-size:10px;padding:2px 8px;">Free</span>
+      </div>
+      <div class="llm-chip reveal delay-100">
+        <div class="flex items-center gap-2"><span style="color:#a78bfa;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:12px;">GLM / Zhipu AI</span><span class="text-gray-600 text-xs">— glm-4-flash</span></div>
+        <span class="badge badge-green" style="font-size:10px;padding:2px 8px;">Free</span>
+      </div>
+      <div class="llm-chip reveal delay-200">
+        <div class="flex items-center gap-2"><span style="color:#06b6d4;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:12px;">Cloudflare AI</span><span class="text-gray-600 text-xs">— llama-3.1-8b</span></div>
+        <span class="badge badge-green" style="font-size:10px;padding:2px 8px;">Free</span>
+      </div>
+      <div class="llm-chip reveal delay-300">
+        <div class="flex items-center gap-2"><span style="color:#22c55e;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:12px;">Cohere</span><span class="text-gray-600 text-xs">— command-r-plus</span></div>
+        <span class="badge" style="font-size:10px;padding:2px 8px;color:#f59e0b;border-color:rgba(245,158,11,0.3);background:rgba(245,158,11,0.05);">Paid</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ======================== 3 WAYS TO USE ======================== -->
+<section id="usage" class="py-24 px-4">
+  <div class="max-w-5xl mx-auto">
+    <div class="text-center mb-14 reveal">
+      <div class="badge badge-orange mb-4">Usage</div>
+      <h2 class="text-3xl sm:text-4xl font-black tracking-tight mb-4">All CLI.<br /><span class="grad-text">Zero config.</span></h2>
+    </div>
+
+    <div id="tab-cli" class="tab-content">
+      <div class="terminal">
+        <div class="terminal-bar">
+          <span class="dot dot-red"></span>
+          <span class="dot dot-yellow"></span>
+          <span class="dot dot-green"></span>
+          <span style="margin-left:8px;font-size:11px;color:#555;font-family:'JetBrains Mono',monospace;">Terminal</span>
+        </div>
+        <div style="padding:20px;">
+          <pre><code class="language-bash"># Install
+pip install postman-agent
+
+# First-time setup (choose LLM + add API key)
+postman-agent setup
+
+# Generate from current directory
+postman-agent generate --scan .
+
+# Generate from specific folder
+postman-agent generate --scan ./src/routes
+
+# Watch mode — regenerate on file changes
+postman-agent watch --scan . --interval 5
+
+# Dry run — preview without importing
+postman-agent generate --scan . --dry-run</code></pre>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+
+<!-- ======================== LIVE DEMO ======================== -->
+<section id="demo" class="py-24 px-4" style="background:linear-gradient(180deg,#0a0a0a,#0d0d12);">
+  <div class="max-w-3xl mx-auto">
+    <div class="text-center mb-14 reveal">
+      <div class="badge badge-green mb-4">Live Demo</div>
+      <h2 class="text-3xl sm:text-4xl font-black tracking-tight mb-4">Watch it <span class="grad-text">run.</span></h2>
+      <p class="text-gray-400 text-base">This is exactly what you'll see in your terminal.</p>
+    </div>
+
+    <div class="terminal reveal glow-orange">
+      <div class="terminal-bar">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+        <span style="margin-left:8px;font-size:11px;color:#555;font-family:'JetBrains Mono',monospace;">bash — ~/my-express-project</span>
+        <button onclick="restartDemo()" style="margin-left:auto;font-size:10px;color:#555;background:transparent;border:1px solid #2a2a2a;border-radius:4px;padding:2px 8px;cursor:pointer;font-family:'JetBrains Mono',monospace;transition:color 0.2s;"
+          onmouseover="this.style.color='#f97316'" onmouseout="this.style.color='#555'">restart</button>
+      </div>
+      <div id="demo-term" style="padding:20px;font-family:'JetBrains Mono',monospace;font-size:13px;min-height:280px;line-height:1.7;"></div>
+    </div>
+
+  </div>
+</section>
+
+
+<!-- ======================== FOOTER ======================== -->
+<footer style="background:#080808;border-top:1px solid #1a1a1a;" class="py-16 px-4">
+  <div class="max-w-5xl mx-auto">
+
+    <div class="flex flex-col md:flex-row justify-between gap-10 mb-12">
+
+      <!-- Brand -->
+      <div class="max-w-xs">
+        <div class="flex items-center gap-3 mb-4">
+          <div style="background:linear-gradient(135deg,#f97316,#8b5cf6);width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          </div>
+          <span style="font-weight:700;font-size:15px;">postman-agent</span>
+        </div>
+        <p class="text-gray-500 text-sm leading-relaxed mb-4">
+          Stop writing Postman Collections manually. Let AI do it in seconds.
+        </p>
+        <div class="flex gap-3">
+          <a href="https://github.com/Abubakar-webmaker/postman-ai-agent" target="_blank" rel="noopener noreferrer" class="badge hover:border-gray-600 transition-colors">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+            GitHub
+          </a>
+          <a href="https://pypi.org/project/postman-agent/" target="_blank" rel="noopener noreferrer" class="badge badge-orange hover:bg-orange-500/10 transition-colors">PyPI</a>
+
+        </div>
+      </div>
+
+      <!-- Links -->
+      <div class="grid grid-cols-2 gap-8">
+        <div>
+          <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Product</h4>
+          <div class="flex flex-col gap-2">
+            <a href="#how-it-works" class="text-sm text-gray-400 hover:text-white transition-colors">How it works</a>
+            <a href="#features" class="text-sm text-gray-400 hover:text-white transition-colors">Features</a>
+            <a href="#llm-providers" class="text-sm text-gray-400 hover:text-white transition-colors">LLM Providers</a>
+            <a href="#usage" class="text-sm text-gray-400 hover:text-white transition-colors">Usage</a>
+          </div>
+        </div>
+        <div>
+          <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Developer</h4>
+          <div class="flex flex-col gap-2">
+            <a href="https://github.com/Abubakar-webmaker/postman-ai-agent" target="_blank" rel="noopener noreferrer" class="text-sm text-gray-400 hover:text-white transition-colors">GitHub</a>
+            <a href="https://pypi.org/project/postman-agent/" target="_blank" rel="noopener noreferrer" class="text-sm text-gray-400 hover:text-white transition-colors">PyPI</a>
+            <a href="mailto:m.abubakar.codes@gmail.com" class="text-sm text-gray-400 hover:text-white transition-colors">Email</a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Author + copyright -->
+    <div style="border-top:1px solid #1a1a1a;padding-top:24px;" class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div>
+        <p class="text-sm text-gray-400">
+          Built by <span class="text-white font-semibold">M. Abubakar</span>
+          <span class="text-gray-600 mx-2">—</span>
+          <span class="text-gray-500">Full Stack Developer & AI Agent Builder</span>
+        </p>
+        <a href="mailto:m.abubakar.codes@gmail.com" class="text-xs text-gray-600 hover:text-orange-400 transition-colors font-mono mt-1 block">m.abubakar.codes@gmail.com</a>
+      </div>
+      <p class="text-xs text-gray-700 font-mono">MIT License — 2024</p>
+    </div>
+
+  </div>
+</footer>
+
+
+<!-- ======================== SCRIPTS ======================== -->
+<script>
+  hljs.highlightAll();
+
+  // ---- Mobile menu ----
+  function toggleMenu() {
+    const menu = document.getElementById('mobile-menu');
+    menu.classList.toggle('open');
+  }
+
+  // ---- Copy install command ----
+  function copyInstall(el) {
+    navigator.clipboard.writeText('pip install postman-agent').then(() => {
+      const icon = el.querySelector('#copy-icon');
+      icon.style.color = '#22c55e';
+      icon.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+      setTimeout(() => {
+        icon.style.color = '#666';
+        icon.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+      }, 1800);
+    });
+  }
+
+  // ---- Intersection Observer ----
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('.reveal, .reveal-left, .reveal-right').forEach(el => observer.observe(el));
+
+  // ---- Hero terminal animation ----
+  const heroLines = [
+    { text: '$ postman-agent setup', color: '#e5e5e5', delay: 0 },
+    { text: '  Choose LLM provider: Groq (free)', color: '#4ade80', delay: 700 },
+    { text: '  API Key: **********************', color: '#a78bfa', delay: 1400 },
+    { text: '  Setup complete.', color: '#4ade80', delay: 2000 },
+    { text: '', delay: 2400 },
+    { text: '$ postman-agent generate --scan .', color: '#e5e5e5', delay: 2700 },
+    { text: '  Scanning project files...', color: '#666', delay: 3300 },
+    { text: '  Found 53 routes across 8 files.', color: '#4ade80', delay: 4000 },
+    { text: '  Generating collection...', color: '#666', delay: 4600 },
+    { text: '  Importing to Postman...', color: '#666', delay: 5300 },
+    { text: '  Done. Collection ready!', color: '#f97316', delay: 6000 },
+  ];
+
+  function runHeroTerminal() {
+    const container = document.getElementById('hero-term-content');
+    container.innerHTML = '';
+    heroLines.forEach(line => {
+      setTimeout(() => {
+        const div = document.createElement('div');
+        div.style.color = line.color || '#666';
+        div.style.opacity = '0';
+        div.style.transform = 'translateX(-6px)';
+        div.style.transition = 'all 0.25s ease';
+        div.style.fontSize = '12px';
+        div.textContent = line.text || '\u00A0';
+        container.appendChild(div);
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            div.style.opacity = '1';
+            div.style.transform = 'translateX(0)';
+          }, 10);
+        });
+      }, line.delay);
+    });
+  }
+  runHeroTerminal();
+
+  // ---- Live demo terminal ----
+  const demoLines = [
+    { text: '$ postman-agent generate --scan .', color: '#e5e5e5', delay: 200 },
+    { text: '', delay: 700 },
+    { text: '  Analyzing project structure...', color: '#666', delay: 900 },
+    { text: '  Detected: Express.js', color: '#f97316', delay: 1500 },
+    { text: '  Base path: /api/v1', color: '#a78bfa', delay: 2000 },
+    { text: '', delay: 2400 },
+    { text: '  Found 53 routes!', color: '#4ade80', delay: 2600 },
+    { text: '', delay: 3000 },
+    { text: '  Authentication    (7 routes)', color: '#e5e5e5', delay: 3200 },
+    { text: '  Products          (5 routes)', color: '#e5e5e5', delay: 3600 },
+    { text: '  Orders            (4 routes)', color: '#e5e5e5', delay: 4000 },
+    { text: '  Users             (6 routes)', color: '#e5e5e5', delay: 4400 },
+    { text: '  Categories        (4 routes)', color: '#e5e5e5', delay: 4800 },
+    { text: '  Reviews           (3 routes)', color: '#e5e5e5', delay: 5200 },
+    { text: '  Notifications     (5 routes)', color: '#e5e5e5', delay: 5600 },
+    { text: '  Admin             (12 routes)', color: '#e5e5e5', delay: 6000 },
+    { text: '  Payments          (7 routes)', color: '#e5e5e5', delay: 6400 },
+    { text: '', delay: 6800 },
+    { text: '  Generating Postman collection...', color: '#666', delay: 7000 },
+    { text: '  Applying AI enhancement...', color: '#666', delay: 7800 },
+    { text: '  Importing to Postman...', color: '#666', delay: 8600 },
+    { text: '', delay: 9200 },
+    { text: '  Imported to Postman!', color: '#f97316', delay: 9400 },
+    { text: '  https://go.postman.co/collection/xxxxx', color: '#8b5cf6', delay: 9900 },
+    { text: '', delay: 10300 },
+    { text: '  Done in 11.2s', color: '#4ade80', delay: 10500 },
+  ];
+
+  let demoTimeout = [];
+
+  function runDemo() {
+    const container = document.getElementById('demo-term');
+    container.innerHTML = '';
+    demoTimeout.forEach(clearTimeout);
+    demoTimeout = [];
+
+    demoLines.forEach(line => {
+      const t = setTimeout(() => {
+        const div = document.createElement('div');
+        div.style.color = line.color || '#666';
+        div.style.opacity = '0';
+        div.style.transform = 'translateX(-6px)';
+        div.style.transition = 'all 0.25s ease';
+        div.textContent = line.text || '\u00A0';
+        container.appendChild(div);
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            div.style.opacity = '1';
+            div.style.transform = 'translateX(0)';
+          }, 10);
+        });
+        container.scrollTop = container.scrollHeight;
+      }, line.delay);
+      demoTimeout.push(t);
+    });
+  }
+
+  function restartDemo() { runDemo(); }
+
+  // Run demo when section visible
+  const demoSection = document.getElementById('demo');
+  const demoObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        runDemo();
+        demoObs.disconnect();
+      }
+    });
+  }, { threshold: 0.3 });
+  demoObs.observe(demoSection);
+
+  // ---- Navbar shrink on scroll ----
+  window.addEventListener('scroll', () => {
+    const nav = document.getElementById('navbar');
+    if (window.scrollY > 60) {
+      nav.style.background = 'rgba(8,8,8,0.95)';
+    } else {
+      nav.style.background = 'rgba(10,10,10,0.85)';
+    }
+  });
+</script>
+
+<style>
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+</style>
+
+</body>
+</html>
