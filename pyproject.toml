@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "postman-agent"
+version = "1.0.0"
+description = "AI Agent that auto-generates Postman Collections from backend code"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Hanzala Kashif", email = "hanzalakashif2003@gmail.com" }]
+keywords = ["postman", "api", "ai", "agent", "langgraph", "groq", "express", "fastapi", "flask"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "langchain>=0.2.0",
+    "langchain-groq>=0.1.0",
+    "langgraph>=0.1.0",
+    "httpx>=0.27.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+gemini      = ["langchain-google-genai"]
+ollama      = ["langchain-ollama"]
+openai      = ["langchain-openai"]
+anthropic   = ["langchain-anthropic"]
+mistral     = ["langchain-mistralai"]
+cohere      = ["langchain-cohere"]
+huggingface = ["langchain-huggingface"]
+all-free    = [
+    "langchain-google-genai",
+    "langchain-ollama",
+    "langchain-openai",
+]
+all         = [
+    "langchain-google-genai",
+    "langchain-ollama",
+    "langchain-openai",
+    "langchain-anthropic",
+    "langchain-mistralai",
+    "langchain-cohere",
+    "langchain-huggingface",
+]
+
+[project.urls]
+Homepage = "https://github.com/Hanzzalaaa/postman-ai-agent"
+Repository = "https://github.com/Hanzzalaaa/postman-ai-agent"
+
+[project.scripts]
+postman-agent = "postman_agent.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["postman_agent*"]
